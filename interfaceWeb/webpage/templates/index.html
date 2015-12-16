@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title>Christma-hanu-kwanzaa</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="//code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css"/>
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}" type="text/css">
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" type="text/css"/>
+    </head>
+    <body>
+        <div class="container">
+            <div class="jumbotron col-sm-12">
+                <h1>CHRISTMA-HANU-KWANZAA TREE LIGHTS</h1>
+                <p>Control the color and animation of tree lights from this web page. 
+                Happy Holidays!</p>
+            </div>
+            <div class="row">
+                <div class="col-sm-12">
+                    <h2>Color Scheme</h2>
+                    <div class="col-sm-2">
+                        <button type="button" class="btn btn-default btn-block scheme" id="plain">Plain</button>
+                    </div>
+                    <div class="col-sm-2">
+                        <button type="button" class="btn btn-default btn-block scheme" id="rgb">RGB</button>
+                    </div>
+                    <div class="col-sm-2">
+                        <button type="button" class="btn btn-default btn-block scheme" id="christmas">Christmas</button>
+                    </div>
+                    <div class="col-sm-2">
+                        <button type="button" class="btn btn-default btn-block scheme" id="hanukkah">Hanukkah</button>
+                    </div>
+                    <div class="col-sm-2">
+                        <button type="button" class="btn btn-default btn-block scheme" id="kwanzaa">Kwanzaa</button>
+                    </div>
+                    <div class="col-sm-2">
+                        <button type="button" class="btn btn-default btn-block scheme" id="rainbow">Rainbow</button>
+                    </div>
+                    <!-- This empty div adds some vertical space between button rows and hides when width is too small and elements collapse into a list. -->
+                    <div class="hidden-xs">&nbsp;</div>
+                    <div class="col-sm-2">
+                        <button type="button" class="btn btn-default btn-block scheme" id="fire">Fire</button>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-12">
+                    <h2>Pattern</h2>
+                    <div class="col-sm-2">
+                        <button type="button" class="btn btn-default btn-block pattern" id="bars">Bars</button>
+                    </div>
+                    <div class="col-sm-2">
+                        <button type="button" class="btn btn-default btn-block pattern" id="gradient">Gradient</button>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-12">
+                    <h2>Animations</h2>
+                    <div class="col-sm-2">
+                        <button type="button" class="btn btn-default btn-block animation" id="rainbow2">Rainbow</button>
+                    </div>
+                    <div class="col-sm-2">
+                        <button type="button" class="btn btn-default btn-block animation" id="rainbowc">Rainbow Cycle</button>
+                    </div>
+                    <div class="col-sm-2">
+                        <button type="button" class="btn btn-default btn-block animation" id="colorWipe">Color Wipe</button>
+                    </div>
+                    <div class="col-sm-2">
+                        <button type="button" class="btn btn-default btn-block animation" id="theater">Theater Chase</button>
+                    </div>
+                    <div class="col-sm-2">
+                        <button type="button" class="btn btn-default btn-block animation" id="theatherr">Theater Chase Rainbow</button>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-12">
+                    <h2>Width</h2>
+                    <div class="col-sm-2">
+                        <button type="button" class="btn btn-default btn-block width" id="widthSmall">Small</button>
+                    </div>
+                    <div class="col-sm-2">
+                        <button type="button" class="btn btn-default btn-block width" id="widthMedium">Medium</button>
+                    </div>
+                    <div class="col-sm-2">
+                        <button type="button" class="btn btn-default btn-block width" id="widthLarge">Large</button>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-12">
+                    <h2>Speed</h2>
+                    <div class="col-sm-2">
+                        <button type="button" class="btn btn-default btn-block speed" id="speedNone">None</button>
+                    </div>
+                    <div class="col-sm-2">
+                        <button type="button" class="btn btn-default btn-block speed" id="speedSlow">Slow</button>
+                    </div>
+                    <div class="col-sm-2">
+                        <button type="button" class="btn btn-default btn-block speed" id="speedModerate">Moderate</button>
+                    </div>
+                    <div class="col-sm-2">
+                        <button type="button" class="btn btn-default btn-block speed" id="speedFast">Fast</button>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-12">
+                    <h2>Speed</h2>
+                    <div id="slider" style="margin-top:25px;"></div>
+                </div>
+            </div>
+        </div>
+    </body>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+    <script src="//code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
+    <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+    <script>
+        var types = {
+            scheme:[{name:'Plain',id:'#plain',value:0},{name:'RGB',id:'#rgb',value:1},{name:'Christmas',id:'#christmas',value:2},{name:'Hanukkah',id:'#hanukkah',value:3},{name:'Kwanzaa',id:'#kwanzaa',value:4},{name:'Rainbow',id:'#rainbow',value:5}],
+            pattern:[{name:'Bars',id:'#bars',value:0},{name:'Gradient',id:'#gradient',value:1}],
+            animation:[{name:'Rainbow',id:'#rainbow2',value:2},{name:'RainbowCycle',id:'#rainbowc',value:3},{name:'ColorWipe',id:'#colorWipe',value:4},{name:'TheaterChase',id:'#theater',value:5},{name:'TheaterChaseRainbow',id:'#theatherr',value:6}],
+            width:[{name:'Small',id:'#widthSmall',value:0},{name:'Medium',id:'#widthMedium',value:1},{name:'Large',id:'#widthLarge',value:2}],
+            speed:[{name:'None',id:'#speedNone',value:0},{name:'Slow',id:'#speedSlow',value:1},{name:'Moderate',id:'#speedModerate',value:2},{name:'Fast',id:'#speedFast',value:3}]
+        };
+        var templateBtn = '<div class="col-sm-2"><button type="button" class="btn btn-default btn-block %type%" id="speedNone">%name%</button></div>';
+        var wd = false;
+        function fetchElt(type, value) {
+            console.log('fetchElt(%s, %d)', type, value);
+            var nbElts = types[type].length,
+                i = 0;
+
+            if (type === 'speed') {
+                /*
+                { 0,       // None
+                       500,     // Slow
+                       250,     // Medium
+                       50   };  // Fast
+                 */
+                switch(value) {
+                    case 50:
+                        value = 1;
+                        break;
+                    case 250:
+                        value = 2;
+                        break;
+                    case 500:
+                        value = 3;
+                        break;
+                    default:
+                        wd = true;
+                        $( "#slider" ).slider('value', -value+(100));
+                        return false; 
+                }
+            }
+            for (; i < nbElts; i++) {
+                console.log('Elt: ', types[type][i]);
+                if (types[type][i].value == value) {
+                    return types[type][i];
+                }
+            }
+            return null;
+        }
+        function resAjax(data) {
+            console.log('resAjax', data);
+            $('.active').removeClass('active');
+            $.each(data, function(type, value) {
+                var elt = fetchElt(type, value);
+                if (elt === null) {
+                    console.error('Elt not found');
+                    return;
+                } else if (elt === false) {
+                    return;
+                }
+                $(elt.id).addClass('active');
+            });
+        };
+        $(document).ready(function() {
+            console.log('Communicating with Arduino at IP: {{ model.arduino_ip }}');
+            var arduinoURL = 'http://{{ model.arduino_ip }}/arduino/';
+
+            $(function() {
+                $( "#slider" ).slider({
+                    step: 5,
+                    min: 0,
+                    max: 100,
+                    change: function( event, ui ) {
+                        if (wd) {
+                            wd = false;
+                            return;
+                        }
+                        console.log('slider', event, ui);
+                        var speed = $(this).slider('value');
+                        speed = 100 - speed;
+
+                        $.ajax({
+                            url: arduinoURL + 'speed/' + speed.toString(), 
+                            dataType: 'jsonp',
+                            jsonpCallback: 'resAjax'
+                        });
+                    }
+                });
+            });
+            $.each(types, function(type, elements) {
+                $.each(elements, function(index, element) {
+                    $(element.id).click(function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        $.ajax({
+                            url: arduinoURL + type + '/' + element.value.toString(),
+                            dataType: 'jsonp',
+                            jsonpCallback: 'resAjax'
+                        });
+                    });
+                });
+            });
+            $.ajax({
+                url: arduinoURL + 'status/0',
+                dataType: 'jsonp',
+                jsonpCallback: 'resAjax'
+            });
+            // Add click handlers which make GET requests to the tree server.
+            // Note that jsonp callbacks MUST be used to deal with cross-domain browser
+            // security issues, even though no data is retrieved.
+            /*$('#plain').click(function() {
+                $.ajax({
+                    url: arduinoURL + 'scheme/0', 
+                    dataType: 'jsonp',   
+                    jsonpCallback: 'resAjax'
+                });
+            });
+
+            $('#rgb').click(function() {
+                $.ajax({
+                    url: arduinoURL + 'scheme/1', 
+                    dataType: 'jsonp',
+                    jsonpCallback: 'resAjax'
+                });
+            });
+
+            $('#christmas').click(function() {
+                $.ajax({
+                    url: arduinoURL + 'scheme/2', 
+                    dataType: 'jsonp',
+                    jsonpCallback: 'resAjax'
+                });
+            });
+
+            $('#hanukkah').click(function() {
+                $.ajax({
+                    url: arduinoURL + 'scheme/3', 
+                    dataType: 'jsonp',
+                    jsonpCallback: 'resAjax'
+                });
+            });
+
+            $('#kwanzaa').click(function() {
+                $.ajax({
+                    url: arduinoURL + 'scheme/4', 
+                    dataType: 'jsonp',
+                    jsonpCallback: 'resAjax'
+                });
+            });
+
+            $('#rainbow').click(function() {
+                $.ajax({
+                    url: arduinoURL + 'scheme/5', 
+                    dataType: 'jsonp',
+                    jsonpCallback: 'resAjax'
+                });
+            });
+
+            $('#fire').click(function() {
+                $.ajax({
+                    url: arduinoURL + 'scheme/6', 
+                    dataType: 'jsonp',
+                    jsonpCallback: 'resAjax'
+                });
+            });
+
+            $('#bars').click(function() {
+                $.ajax({
+                    url: arduinoURL + 'pattern/0', 
+                    dataType: 'jsonp',
+                    jsonpCallback: 'resAjax'
+                });
+            });
+            $('#gradient').click(function() {
+                $.ajax({
+                    url: arduinoURL + 'pattern/1', 
+                    dataType: 'jsonp',
+                    jsonpCallback: 'resAjax'
+                });
+            });
+            $('#rainbow2').click(function() {
+                $.ajax({
+                    url: arduinoURL + 'animation/2',
+                    dataType: 'jsonp',
+                    jsonpCallback: 'resAjax'
+                });
+            });
+            $('#rainbowc').click(function() {
+                $.ajax({
+                    url: arduinoURL + 'animation/3',
+                    dataType: 'jsonp',
+                    jsonpCallback: 'resAjax'
+                });
+            });
+            $('#colorWipe').click(function() {
+                $.ajax({
+                    url: arduinoURL + 'animation/4',
+                    dataType: 'jsonp',
+                    jsonpCallback: 'resAjax'
+                });
+            });
+            $('#theater').click(function() {
+                $.ajax({
+                    url: arduinoURL + 'animation/5',
+                    dataType: 'jsonp',
+                    jsonpCallback: 'resAjax'
+                });
+            });
+            $('#theatherr').click(function() {
+                $.ajax({
+                    url: arduinoURL + 'animation/6',
+                    dataType: 'jsonp',
+                    jsonpCallback: 'resAjax'
+                });
+            });
+            
+            $('#widthSmall').click(function() {
+                $.ajax({
+                    url: arduinoURL + 'width/0', 
+                    dataType: 'jsonp',
+                    jsonpCallback: 'resAjax'
+                });
+            });
+
+            $('#widthMedium').click(function() {
+                $.ajax({
+                    url: arduinoURL + 'width/1', 
+                    dataType: 'jsonp',
+                    jsonpCallback: 'resAjax'
+                });
+            });
+
+            $('#widthLarge').click(function() {
+                $.ajax({
+                    url: arduinoURL + 'width/2', 
+                    dataType: 'jsonp',
+                    jsonpCallback: 'resAjax'
+                });
+            });
+
+            $('#speedNone').click(function() {
+                $.ajax({
+                    url: arduinoURL + 'speed/0', 
+                    dataType: 'jsonp',
+                    jsonpCallback: 'resAjax'
+                });
+            });
+
+            $('#speedSlow').click(function() {
+                $.ajax({
+                    url: arduinoURL + 'speed/1', 
+                    dataType: 'jsonp',
+                    jsonpCallback: 'resAjax'
+                });
+            });
+
+            $('#speedModerate').click(function() {
+                $.ajax({
+                    url: arduinoURL + 'speed/2', 
+                    dataType: 'jsonp',
+                    jsonpCallback: 'resAjax'
+                });
+            });
+
+            $('#speedFast').click(function() {
+                $.ajax({
+                    url: arduinoURL + 'speed/3', 
+                    dataType: 'jsonp',
+                    jsonpCallback: 'resAjax'
+                });
+            });*/
+        });
+    </script>
+</html>
