@@ -54,8 +54,8 @@
 
 Adafruit_CC3000 cc3000 = Adafruit_CC3000(ADAFRUIT_CC3000_CS, ADAFRUIT_CC3000_IRQ, ADAFRUIT_CC3000_VBAT); // , SPI_CLOCK_DIVIDER, &Serial
 
-#define WLAN_SSID       "your_SSID"   // cannot be longer than 32 characters!
-#define WLAN_PASS       "your_KEY_PASS"
+#define WLAN_SSID       "Livebox-25A0"   // cannot be longer than 32 characters!
+#define WLAN_PASS       "3C7955CAEDD45C4E3766A7F9A9"
 // Security can be WLAN_SEC_UNSEC, WLAN_SEC_WEP, WLAN_SEC_WPA or WLAN_SEC_WPA2
 #define WLAN_SECURITY   WLAN_SEC_WPA2
 
@@ -140,7 +140,7 @@ ColorScheme schemes[7] = { incandescent, rgb, christmas, hanukkah, kwanzaa, rain
 enum Pattern { BARS = 0, GRADIENT };
 
 // Enumeration of possible animation types.
-enum Animation { RAINBOWS = 2, RAINBOW_CYCLE, COLOR_WIPE, THEATER_CHASE, THEATER_CHASE_RAINBOW };
+enum Animation { RAINBOWS = 2, RAINBOW_CYCLE, COLOR_WIPE, THEATER_CHASE, THEATER_CHASE_RAINBOW, RANDOM };
 
 // Bar width values (in number of pixels/lights) for different size options.
 int barWidthValues[3] = { 1,      // Small
@@ -161,10 +161,11 @@ int speedValues[4] = { 0,       // None
 // Variables to hold current state.
 int currentScheme = 0;
 Pattern currentPattern = GRADIENT;
-Animation currentAnimation = RAINBOW_CYCLE;
+Animation currentAnimation = RANDOM;
 int currentWidth = 0;
 int currentSpeed = 20;
 bool isAnimation = true;
+int counter = 0; // Compteur pour la mise a jour du random
 
 uint8_t buffer[BUFFER_SIZE+1];
 int bufindex = 0;
@@ -212,7 +213,7 @@ void setup() {
   strip.begin();
   strip.show();
   // Initialise random numbers
-  randomSeed(analogRead(0));
+  randomSeed(analogRead(A15));
 
   // ******************************************************
   // You can safely remove this to save some flash memory!
@@ -300,7 +301,7 @@ void bars(struct ColorScheme& scheme, int width = 1, int speedMS = 1000) {
 
 // Fill the dots one after the other with a color
 void colorWipe(uint32_t c, uint8_t wait) {
-  #ifdef debug
+  #ifdef DEBUG
     Serial.print(F("colorWipe wait: ")); Serial.println(wait);
   #endif
   
@@ -317,7 +318,7 @@ void colorWipe(uint32_t c, uint8_t wait) {
 void rainbows(uint8_t wait) {
   uint16_t i, j;
   
-  #ifdef debug
+  #ifdef DEBUG
     Serial.print(F("rainbow wait: ")); Serial.println(wait);
   #endif
   
@@ -338,7 +339,7 @@ void rainbowCycle(uint8_t wait) {
   uint16_t i, j, numbers;
   numbers = 256 * 5;
   
-  #ifdef debug
+  #ifdef DEBUG
     Serial.print(F("rainbowCycle wait: ")); Serial.println(wait);
   #endif
 
@@ -356,7 +357,7 @@ void rainbowCycle(uint8_t wait) {
 
 //Theatre-style crawling lights.
 void theaterChase(uint32_t c, uint8_t wait) {
-  #ifdef debug
+  #ifdef DEBUG
     Serial.print(F("theaterChase wait: ")); Serial.println(wait);
   #endif
   for (int j=0; j<10; j++) {  //do 10 cycles of chasing
@@ -380,7 +381,7 @@ void theaterChase(uint32_t c, uint8_t wait) {
 
 //Theatre-style crawling lights with rainbow effect
 void theaterChaseRainbow(uint8_t wait) {
-  #ifdef debug
+  #ifdef DEBUG
     Serial.print(F("theaterChaseRainbow wait: ")); Serial.println(wait);
   #endif
   
@@ -427,7 +428,7 @@ void set_speed(uint8_t wait) {
   } else {
     currentSpeed = constrain(wait, 0, 1023);
   }
-  #ifdef debug
+  #ifdef DEBUG
     Serial.print(F("CurrentSpeed: ")); Serial.println(currentSpeed);
   #endif
 }
@@ -437,7 +438,7 @@ bool checkServer() {
 }
 
 void loop() {
-  #ifdef debug
+  #ifdef DEBUG
     Serial.println(F("loop"));
   #endif
   //wdt_enable(WDTO_2S);
@@ -506,7 +507,7 @@ void loop() {
           #endif
         }
         else if (strcmp(type, "animation") == 0) {
-          currentAnimation = (Animation)constrain(val, 2, 6);
+          currentAnimation = (Animation)constrain(val, 2, 7);
           isAnimation = true;
           #ifdef DEBUG
             PRINT_DEBUG("Animation: ", value);
@@ -594,24 +595,52 @@ void loop() {
       gradient(schemes[currentScheme], gradientWidthValues[currentWidth], currentSpeed);
     }
   } else {
-    switch(currentAnimation) {
-      case RAINBOWS:
-        rainbows(currentSpeed);
-        break;
-      case RAINBOW_CYCLE:
-        rainbowCycle(currentSpeed);
-        break;
-      case COLOR_WIPE:
-        colorWipe(Wheel(random(0, 255)), currentSpeed);
-        break;
-      case THEATER_CHASE:
-        theaterChase(Wheel(random(0, 255)), currentSpeed); // Blue
-        break;
-      case THEATER_CHASE_RAINBOW:
-        theaterChaseRainbow(currentSpeed);
-        break;
+    if (currentAnimation == RANDOM) {
+      // Some example procedures showing how to display to the pixels:
+      colorWipe(strip.Color(255, 0, 0), 50); // Red
+      colorWipe(strip.Color(0, 255, 0), 50); // Green
+      colorWipe(strip.Color(0, 0, 255), 50); // Blue
+      // Send a theater pixel chase in...
+      theaterChase(strip.Color(127, 127, 127), 50); // White
+      theaterChase(strip.Color(127, 0, 0), 50); // Red
+      theaterChase(strip.Color(0, 0, 127), 50); // Blue
+    
+      rainbows(20);
+      rainbowCycle(20);
+      theaterChaseRainbow(50);
+    } else {
+      switch(currentAnimation) {
+        case RAINBOWS:
+          rainbows(currentSpeed);
+          break;
+        case RAINBOW_CYCLE:
+          rainbowCycle(currentSpeed);
+          break;
+        case COLOR_WIPE:
+          colorWipe(Wheel(randomByte()), currentSpeed);
+          break;
+        case THEATER_CHASE:
+          theaterChase(Wheel(randomByte()), currentSpeed); // Blue
+          break;
+        case THEATER_CHASE_RAINBOW:
+          theaterChaseRainbow(currentSpeed);
+          break;
+      }
     }
   }
+}
+
+uint8_t randomByte(void) {
+  uint8_t rand = random(256);
+  if (counter < 1000) counter++;
+  else {
+    randomSeed(analogRead(A15));
+    counter = 0;
+    #ifdef DEBUG
+      Serial.println(F("Counter reset"));
+    #endif
+  }
+  return rand;
 }
 
 // Return true if the buffer contains an HTTP request.  Also returns the request
