@@ -166,6 +166,7 @@ int currentWidth = 0;
 int currentSpeed = 20;
 bool isAnimation = true;
 int counter = 0; // Compteur pour la mise a jour du random
+bool pause = false;
 
 uint8_t buffer[BUFFER_SIZE+1];
 int bufindex = 0;
@@ -437,10 +438,18 @@ bool checkServer() {
   return httpServer.available().available();
 }
 
+void togglePause(void) {
+  pause = !pause;
+  
+  if (pause) {
+    for(uint8_t i=0; i < PIXEL_COUNT; i++) {
+      strip.setPixelColor(i, strip.Color(0, 0, 0));
+      strip.show();
+    }
+  }
+}
+
 void loop() {
-  #ifdef DEBUG
-    Serial.println(F("loop"));
-  #endif
   //wdt_enable(WDTO_2S);
   // Try to get a client which is connected.
   Adafruit_CC3000_ClientRef client = httpServer.available();
@@ -525,6 +534,18 @@ void loop() {
             PRINT_DEBUG("currentSpeed: ", value);
           #endif
         }
+        else if (strcmp(type, "pause") == 0) {
+          togglePause();
+          #ifdef DEBUG
+            Serial.println(F("Toggle pause"));
+          #endif
+        }
+        if (pause && strcmp(type, "pause") != 0 && strcmp(type, "status") != 0) {
+          togglePause();
+          #ifdef DEBUG
+            Serial.println(F("Toggle pause auto"));
+          #endif
+        }
         
         if (callback != NULL) {
           if (!isAnimation) {
@@ -587,44 +608,46 @@ void loop() {
     Serial.println(F("Client disconnected"));
     client.close();
   }
-  // Update pixels based on current state.
-  if (!isAnimation) {
-    if (currentPattern == BARS) {
-      bars(schemes[currentScheme], barWidthValues[currentWidth], currentSpeed);
-    } else if (currentPattern == GRADIENT) {
-      gradient(schemes[currentScheme], gradientWidthValues[currentWidth], currentSpeed);
-    }
-  } else {
-    if (currentAnimation == RANDOM) {
-      // Some example procedures showing how to display to the pixels:
-      colorWipe(strip.Color(255, 0, 0), 50); // Red
-      colorWipe(strip.Color(0, 255, 0), 50); // Green
-      colorWipe(strip.Color(0, 0, 255), 50); // Blue
-      // Send a theater pixel chase in...
-      theaterChase(strip.Color(127, 127, 127), 50); // White
-      theaterChase(strip.Color(127, 0, 0), 50); // Red
-      theaterChase(strip.Color(0, 0, 127), 50); // Blue
-    
-      rainbows(20);
-      rainbowCycle(20);
-      theaterChaseRainbow(50);
+  if (!pause) {
+    // Update pixels based on current state.
+    if (!isAnimation) {
+      if (currentPattern == BARS) {
+        bars(schemes[currentScheme], barWidthValues[currentWidth], currentSpeed);
+      } else if (currentPattern == GRADIENT) {
+        gradient(schemes[currentScheme], gradientWidthValues[currentWidth], currentSpeed);
+      }
     } else {
-      switch(currentAnimation) {
-        case RAINBOWS:
-          rainbows(currentSpeed);
-          break;
-        case RAINBOW_CYCLE:
-          rainbowCycle(currentSpeed);
-          break;
-        case COLOR_WIPE:
-          colorWipe(Wheel(randomByte()), currentSpeed);
-          break;
-        case THEATER_CHASE:
-          theaterChase(Wheel(randomByte()), currentSpeed); // Blue
-          break;
-        case THEATER_CHASE_RAINBOW:
-          theaterChaseRainbow(currentSpeed);
-          break;
+      if (currentAnimation == RANDOM) {
+        // Some example procedures showing how to display to the pixels:
+        colorWipe(strip.Color(255, 0, 0), 50); // Red
+        colorWipe(strip.Color(0, 255, 0), 50); // Green
+        colorWipe(strip.Color(0, 0, 255), 50); // Blue
+        // Send a theater pixel chase in...
+        theaterChase(strip.Color(127, 127, 127), 50); // White
+        theaterChase(strip.Color(127, 0, 0), 50); // Red
+        theaterChase(strip.Color(0, 0, 127), 50); // Blue
+      
+        rainbows(20);
+        rainbowCycle(20);
+        theaterChaseRainbow(50);
+      } else {
+        switch(currentAnimation) {
+          case RAINBOWS:
+            rainbows(currentSpeed);
+            break;
+          case RAINBOW_CYCLE:
+            rainbowCycle(currentSpeed);
+            break;
+          case COLOR_WIPE:
+            colorWipe(Wheel(randomByte()), currentSpeed);
+            break;
+          case THEATER_CHASE:
+            theaterChase(Wheel(randomByte()), currentSpeed); // Blue
+            break;
+          case THEATER_CHASE_RAINBOW:
+            theaterChaseRainbow(currentSpeed);
+            break;
+        }
       }
     }
   }
