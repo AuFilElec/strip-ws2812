@@ -35,15 +35,13 @@
   
   Code adapté par et pour Au Fil Elec pour les besoins de l'entreprise
  ****************************************************/
- 
+
 #include <Adafruit_CC3000.h>
 #include <SPI.h>
 #include <Adafruit_NeoPixel.h>
-#include <avr/wdt.h>
 #include "utility/debug.h"
 #include "utility/socket.h"
 
-#define debug
 
 // These are the interrupt and control pins
 #define ADAFRUIT_CC3000_IRQ   2  // MUST be an interrupt pin!
@@ -52,12 +50,12 @@
 #define ADAFRUIT_CC3000_CS    10
 // Use hardware SPI for the remaining pins
 // On an MEGA 2560, SCK = 20, MISO = 22, and MOSI = 21
+#define DEBUG
 
-Adafruit_CC3000 cc3000 = Adafruit_CC3000(ADAFRUIT_CC3000_CS, ADAFRUIT_CC3000_IRQ, ADAFRUIT_CC3000_VBAT,
-                                         SPI_CLOCK_DIVIDER); // you can change this clock speed
+Adafruit_CC3000 cc3000 = Adafruit_CC3000(ADAFRUIT_CC3000_CS, ADAFRUIT_CC3000_IRQ, ADAFRUIT_CC3000_VBAT); // , SPI_CLOCK_DIVIDER, &Serial
 
-#define WLAN_SSID       "your-network-SSID"   // cannot be longer than 32 characters!
-#define WLAN_PASS       "your-network-KEY-PASS"
+#define WLAN_SSID       "your_SSID"   // cannot be longer than 32 characters!
+#define WLAN_PASS       "your_KEY_PASS"
 // Security can be WLAN_SEC_UNSEC, WLAN_SEC_WEP, WLAN_SEC_WPA or WLAN_SEC_WPA2
 #define WLAN_SECURITY   WLAN_SEC_WPA2
 
@@ -139,7 +137,10 @@ ColorScheme fire(fireColors, 3);
 ColorScheme schemes[7] = { incandescent, rgb, christmas, hanukkah, kwanzaa, rainbow, fire };
 
 // Enumeration of possible pattern types.
-enum Pattern { BARS = 0, GRADIENT, RAINBOWS, RAINBOW_CYCLE, COLOR_WIPE, THEATER_CHASE, THEATER_CHASE_RAINBOW };
+enum Pattern { BARS = 0, GRADIENT };
+
+// Enumeration of possible animation types.
+enum Animation { RAINBOWS = 2, RAINBOW_CYCLE, COLOR_WIPE, THEATER_CHASE, THEATER_CHASE_RAINBOW };
 
 // Bar width values (in number of pixels/lights) for different size options.
 int barWidthValues[3] = { 1,      // Small
@@ -159,9 +160,11 @@ int speedValues[4] = { 0,       // None
 
 // Variables to hold current state.
 int currentScheme = 0;
-Pattern currentPattern = RAINBOW_CYCLE;
+Pattern currentPattern = GRADIENT;
+Animation currentAnimation = RAINBOW_CYCLE;
 int currentWidth = 0;
-int currentSpeed = 0;
+int currentSpeed = 20;
+bool isAnimation = true;
 
 uint8_t buffer[BUFFER_SIZE+1];
 int bufindex = 0;
@@ -170,7 +173,7 @@ char path[MAX_PATH+1];
 char type[MAX_TYPE+1];
 char value[5];
 char callback[MAX_CALLBACK+1];
-char response[64];
+char response[100];
 
 void setup() {
   Serial.begin(115200);
@@ -257,14 +260,16 @@ void gradient(struct ColorScheme& scheme, int repeat = 1, int speedMS = 1000) {
   unsigned long time = millis();
   int offset = speedMS > 0 ? time / speedMS : 0;
 
-  Color oldColor = gradientColor(scheme, range, gradRange, PIXEL_COUNT-1+offset);  
+  Color oldColor = gradientColor(scheme, range, gradRange, PIXEL_COUNT-1+offset);
+  Color currentColor;
+  int rapport = time % speedMS; 
   for (int i = 0; i < PIXEL_COUNT; ++i) {
-    Color currentColor = gradientColor(scheme, range, gradRange, i+offset);
+    currentColor = gradientColor(scheme, range, gradRange, i+offset);
     if (speedMS > 0) {
       // Blend old and current color based on time for smooth movement.
-      strip.setPixelColor(i, map(time % speedMS, 0, speedMS, oldColor.red,   currentColor.red),
-                             map(time % speedMS, 0, speedMS, oldColor.green, currentColor.green),
-                             map(time % speedMS, 0, speedMS, oldColor.blue,  currentColor.blue));
+      strip.setPixelColor(i, map(rapport, 0, speedMS, oldColor.red,   currentColor.red),
+                             map(rapport, 0, speedMS, oldColor.green, currentColor.green),
+                             map(rapport, 0, speedMS, oldColor.blue,  currentColor.blue));
     }
     else {
       // No animation, just use the current color. 
@@ -284,30 +289,46 @@ void bars(struct ColorScheme& scheme, int width = 1, int speedMS = 1000) {
   if (width > maxSize) return;
   
   int offset = speedMS > 0 ? millis() / speedMS : 0;
+  int colorIndex = 0;
   
-  for (int i = 0; i < PIXEL_COUNT; ++i) {
-    int colorIndex = ((i + offset) % (scheme.count * width)) / width;
+  for (uint8_t i = 0; i < PIXEL_COUNT; ++i) {
+    colorIndex = ((i + offset) % (scheme.count * width)) / width;
     strip.setPixelColor(i, scheme.colors[colorIndex].red, scheme.colors[colorIndex].green, scheme.colors[colorIndex].blue);
   }
   strip.show(); 
 }
+
 // Fill the dots one after the other with a color
 void colorWipe(uint32_t c, uint8_t wait) {
-  for(uint16_t i=0; i<strip.numPixels(); i++) {
+  #ifdef debug
+    Serial.print(F("colorWipe wait: ")); Serial.println(wait);
+  #endif
+  
+  for(uint8_t i=0; i < PIXEL_COUNT; i++) {
     strip.setPixelColor(i, c);
     strip.show();
+    if (checkServer()) {
+      return;
+    }
     delay(wait);
   }
 }
 
 void rainbows(uint8_t wait) {
   uint16_t i, j;
-
+  
+  #ifdef debug
+    Serial.print(F("rainbow wait: ")); Serial.println(wait);
+  #endif
+  
   for(j=0; j<256; j++) {
     for(i=0; i<PIXEL_COUNT; i++) {
       strip.setPixelColor(i, Wheel((i+j) & 255));
     }
     strip.show();
+    if (checkServer()) {
+      return;
+    }
     delay(wait);
   }
 }
@@ -316,18 +337,28 @@ void rainbows(uint8_t wait) {
 void rainbowCycle(uint8_t wait) {
   uint16_t i, j, numbers;
   numbers = 256 * 5;
+  
+  #ifdef debug
+    Serial.print(F("rainbowCycle wait: ")); Serial.println(wait);
+  #endif
 
   for(j=0; j < numbers; j++) { // 5 cycles of all colors on wheel
     for(i=0; i < PIXEL_COUNT; i++) {
       strip.setPixelColor(i, Wheel(((i * 256 / PIXEL_COUNT) + j) & 255));
     }
     strip.show();
+    if (checkServer()) {
+      return;
+    }
     delay(wait);
   }
 }
 
 //Theatre-style crawling lights.
 void theaterChase(uint32_t c, uint8_t wait) {
+  #ifdef debug
+    Serial.print(F("theaterChase wait: ")); Serial.println(wait);
+  #endif
   for (int j=0; j<10; j++) {  //do 10 cycles of chasing
     for (int q=0; q < 3; q++) {
       for (int i=0; i < PIXEL_COUNT; i=i+3) {
@@ -335,7 +366,10 @@ void theaterChase(uint32_t c, uint8_t wait) {
       }
       strip.show();
 
-      delay(wait);
+      if (checkServer()) {
+        return;
+      }
+      delay(wait*2.5);
 
       for (int i=0; i < PIXEL_COUNT; i=i+3) {
         strip.setPixelColor(i+q, 0);        //turn every third pixel off
@@ -346,14 +380,21 @@ void theaterChase(uint32_t c, uint8_t wait) {
 
 //Theatre-style crawling lights with rainbow effect
 void theaterChaseRainbow(uint8_t wait) {
+  #ifdef debug
+    Serial.print(F("theaterChaseRainbow wait: ")); Serial.println(wait);
+  #endif
+  
   for (int j=0; j < 256; j++) {     // cycle all 256 colors in the wheel
     for (int q=0; q < 3; q++) {
       for (int i=0; i < PIXEL_COUNT; i=i+3) {
         strip.setPixelColor(i+q, Wheel( (i+j) % 255));    //turn every third pixel on
       }
       strip.show();
-
-      delay(wait);
+  
+      if (checkServer()) {
+        return;
+      }
+      delay(wait*2.5);
 
       for (int i=0; i < PIXEL_COUNT; i=i+3) {
         strip.setPixelColor(i+q, 0);        //turn every third pixel off
@@ -377,7 +418,28 @@ uint32_t Wheel(byte WheelPos) {
   return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
 }
 
+void set_speed(uint8_t wait) {
+  if (!isAnimation) {
+    if (wait > 3) {
+      wait = uint8_t(wait / 33.33);
+    }
+    currentSpeed = speedValues[constrain(wait, 0, 3)];
+  } else {
+    currentSpeed = constrain(wait, 0, 1023);
+  }
+  #ifdef debug
+    Serial.print(F("CurrentSpeed: ")); Serial.println(currentSpeed);
+  #endif
+}
+
+bool checkServer() {
+  return httpServer.available().available();
+}
+
 void loop() {
+  #ifdef debug
+    Serial.println(F("loop"));
+  #endif
   //wdt_enable(WDTO_2S);
   // Try to get a client which is connected.
   Adafruit_CC3000_ClientRef client = httpServer.available();
@@ -412,7 +474,7 @@ void loop() {
     
     // Handle the request if it was parsed.
     if (parsed) {
-      #ifdef debug
+      #ifdef DEBUG
         Serial.println(F("Processing request"));
         Serial.print(F("Action: ")); Serial.println(action);
         Serial.print(F("Path: ")); Serial.println(path);
@@ -428,29 +490,60 @@ void loop() {
         // Update appropriate state for the associated command and value.
         if (strcmp(type, "scheme") == 0) {
           currentScheme = constrain(val, 0, 6);
-          #ifdef debug
-            Serial.print(F("currentScheme: ")); Serial.println(currentScheme);
+          currentPattern = GRADIENT;
+          isAnimation = false;
+          set_speed(currentSpeed);
+          #ifdef DEBUG
+            PRINT_DEBUG("currentScheme: ", value);
           #endif
         }
         else if (strcmp(type, "pattern") == 0) {
-          currentPattern = (Pattern)constrain(val, 0, 6);
-          #ifdef debug
-            Serial.print(F("currentPattern: ")); Serial.println(currentPattern);
+          currentPattern = (Pattern)constrain(val, 0, 1);
+          isAnimation = false;
+          set_speed(currentSpeed);
+          #ifdef DEBUG
+            PRINT_DEBUG("currentPattern: ", value);
+          #endif
+        }
+        else if (strcmp(type, "animation") == 0) {
+          currentAnimation = (Animation)constrain(val, 2, 6);
+          isAnimation = true;
+          #ifdef DEBUG
+            PRINT_DEBUG("Animation: ", value);
           #endif
         }
         else if (strcmp(type, "width") == 0) {
           currentWidth = constrain(val, 0, 2);
-          #ifdef debug
-            Serial.print(F("currentWidth: ")); Serial.println(currentWidth);
+          #ifdef DEBUG
+            PRINT_DEBUG("currentWidth: ", value);
           #endif
         }
         else if (strcmp(type, "speed") == 0) {
-          currentSpeed = speedValues[constrain(val, 0, 3)];
-          #ifdef debug
-            Serial.print(F("currentSpeed: ")); Serial.println(currentSpeed);
+          set_speed(val);
+          #ifdef DEBUG
+            PRINT_DEBUG("currentSpeed: ", value);
           #endif
         }
         
+        if (callback != NULL) {
+          if (!isAnimation) {
+            sprintf(response, "%s({\"scheme\":%d,\"pattern\":%d,\"width\":%d,\"speed\":%d})", 
+                    callback, currentScheme, currentPattern, currentWidth, currentSpeed);
+          } else {
+            sprintf(response, "%s({\"animation\":%d,\"speed\":%d})", 
+                    callback, currentAnimation, currentSpeed);
+          }
+        } else {
+          if (!isAnimation) {
+            sprintf(response, "{\"scheme\":%d,\"pattern\":%d,\"width\":%d,\"speed\":%d}",
+                    currentScheme, currentPattern, currentWidth, currentSpeed);
+          } else {
+            sprintf(response, "{\"animation\":%d,\"speed\":%d}",
+                    currentAnimation, currentSpeed);
+          }
+        }
+        char resLength[15];
+        sprintf(resLength, "%d", strlen(response));
         
         // Respond with the path that was accessed.
         // First send the success response code.
@@ -460,34 +553,15 @@ void loop() {
         client.fastrprintln(F("Content-Type: application/json"));
         client.fastrprintln(F("Connection: close"));
         client.fastrprintln(F("Server: Adafruit CC3000"));
+        client.fastrprint(F("Content-Length: ")); client.fastrprintln(resLength);
         // Send an empty line to signal start of body.
         client.fastrprintln(F(""));
         // Now send the response data.
-        if (callback != NULL) {
-          sprintf(response, "%s({\"type\":\"%s\",\"value\":%s})", callback, type, value);
-        } else {
-          sprintf(response, "{\"type\":%s,\"value\":%s}", type, value);
-        }
         client.fastrprintln(response);
-        #ifdef debug
-          Serial.print(F("Response: "));
-          Serial.println(response);
+        
+        #ifdef DEBUG
+          PRINT_DEBUG("Response: ", response);
         #endif
-        /*
-        if (callback != NULL) {
-          client.fastrprint(callback);
-          client.fastrprint(F("("));
-        }
-        client.fastrprint(F("{\"type\": \""));
-        client.fastrprint(type);
-        client.fastrprint(F("\", \"value\": "));
-        client.fastrprint(value);
-        client.fastrprint(F("}"));
-        if (callback != NULL) {
-          client.fastrprint(F(");"));
-        }
-        client.fastrprintln(F(""));
-        */
       }
       else {
         // Unsupported action, respond with an HTTP 405 method not allowed error.
@@ -512,44 +586,31 @@ void loop() {
     Serial.println(F("Client disconnected"));
     client.close();
   }
-  /*
-  // Some example procedures showing how to display to the pixels:
-    colorWipe(strip.Color(255, 0, 0), 50); // Red
-    colorWipe(strip.Color(0, 255, 0), 50); // Green
-    colorWipe(strip.Color(0, 0, 255), 50); // Blue
-    // Send a theater pixel chase in...
-    theaterChase(strip.Color(127, 127, 127), 50); // White
-    theaterChase(strip.Color(127, 0, 0), 50); // Red
-    theaterChase(strip.Color(0, 0, 127), 50); // Blue
-  
-    rainbow(20);
-    rainbowCycle(20);
-    theaterChaseRainbow(50);
-  */
-  // BARS = 0, GRADIENT, RAINBOW, RAINBOW_CYCLE, COLOR_WIPE, THEATER_CHASE, THEATER_CHASE_RAINBOW
   // Update pixels based on current state.
-  switch(currentPattern) {
-    case BARS:
+  if (!isAnimation) {
+    if (currentPattern == BARS) {
       bars(schemes[currentScheme], barWidthValues[currentWidth], currentSpeed);
-      break;
-    case GRADIENT:
+    } else if (currentPattern == GRADIENT) {
       gradient(schemes[currentScheme], gradientWidthValues[currentWidth], currentSpeed);
-      break;
-    case RAINBOWS:
-      rainbows(20);
-      break;
-    case RAINBOW_CYCLE:
-      rainbowCycle(20);
-      break;
-    case COLOR_WIPE:
-      colorWipe(Wheel(random(0, 255)), 50);
-      break;
-    case THEATER_CHASE:
-      theaterChase(Wheel(random(0, 255)), 50); // Blue
-      break;
-    case THEATER_CHASE_RAINBOW:
-      theaterChaseRainbow(50);
-      break;
+    }
+  } else {
+    switch(currentAnimation) {
+      case RAINBOWS:
+        rainbows(currentSpeed);
+        break;
+      case RAINBOW_CYCLE:
+        rainbowCycle(currentSpeed);
+        break;
+      case COLOR_WIPE:
+        colorWipe(Wheel(random(0, 255)), currentSpeed);
+        break;
+      case THEATER_CHASE:
+        theaterChase(Wheel(random(0, 255)), currentSpeed); // Blue
+        break;
+      case THEATER_CHASE_RAINBOW:
+        theaterChaseRainbow(currentSpeed);
+        break;
+    }
   }
 }
 
@@ -576,73 +637,88 @@ bool parseRequest(uint8_t* buf, int bufSize, char* action, char* path, char* typ
 
 // Parse the action and path from the first line of an HTTP request.
 bool parseFirstLine(char* line, char* action, char* path, char* type, char* value, char* callback) {
-  #ifdef debug
-    Serial.print(F("line: ")); Serial.println(line);
-  #endif
+  PRINT_DEBUG("Line; ", line);
   // Parse first word up to whitespace as action.
   char* lineaction = strtok(line, " ");
   if (lineaction == NULL) {
+    PRINT_DEBUG("Action not found", "");
     return false;
   }
   strncpy(action, lineaction, MAX_ACTION);
+  
   // Parse second word up to whitespace as path.
   char* linepath = strtok(NULL, " ");
-  if (linepath == NULL) {
-    #ifdef debug
-      Serial.println(F("linepath NULL"));
-    #endif
+  if (linepath != NULL) {
+    strncpy(path, linepath, MAX_PATH);
+    parsePath(path, type, value, callback);
+  } else {
+    PRINT_DEBUG("Path not found", "");
     return false;
   }
-  
-  char* tempPath = strncpy(path, linepath, MAX_PATH);
-  #ifdef debug
-    Serial.print(F("tempPath: ")); Serial.println(tempPath);
-    Serial.print(F("path: ")); Serial.println(path);
-  #endif
-  char* linetype = strtok(tempPath, "/");
-  if (linetype == NULL || strncmp(linetype, "arduino", 7) != 0) {
-    #ifdef debug
-      Serial.println(F("linetype1 NULL"));
-    #endif
+}
+
+bool parsePath(const char* line, char* type, char* value, char* callback) {
+  PRINT_DEBUG("Path; ", (char*)line);
+  char tmp[MAX_PATH];
+  strcpy(tmp, line);
+  char* keyword = strtok(tmp, "/");
+  if (keyword == NULL || strncmp(keyword, "arduino", 7) != 0) {
+    PRINT_DEBUG("Keyword not found or invalid", keyword);
     return false;
   }
-  linetype = strtok(NULL, "/");
+  char* linetype = strtok(NULL, "/");
   if (linetype == NULL) {
-    #ifdef debug
-      Serial.println(F("linetype2 NULL"));
-    #endif
+    PRINT_DEBUG("Type is NULL", "");
     return false;
   }
   strncpy(type, linetype, MAX_TYPE);
+  
   char* linevalue = strtok(NULL, "/");
+  PRINT_DEBUG("LineValue1: ", linevalue);
   if (linevalue == NULL) {
-    #ifdef debug
-      Serial.println(F("linevalue NULL"));
-    #endif
-    value = "0";
-  } else {
-    int i = 0;
-    int j = 0;
-    while(linevalue[i] != '?' && linevalue[i] != '\0' && linevalue[i] != ' ') {
-      value[j++] = linevalue[i++];
-    }
+    PRINT_DEBUG("Value is NULL", "");
+    return false;
   }
-  char* linecallback = strtok(tempPath, "?");
-  if (linecallback != NULL) {
-    Serial.print(F("lineCallback: ")); Serial.println(linecallback);
-    int i = -1;
-    int j = 0;
-    while(linecallback[++i] != '=') {}
-    i++;
-    while(linecallback[i] != '&' && linecallback[i] != '\r') {
-      callback[j++] = linecallback[i++];
-    }
+  linevalue = strtok(linevalue, "?");
+  PRINT_DEBUG("LineValue1: ", linevalue);
+  if (linevalue == NULL) {
+    PRINT_DEBUG("Value is NULL", "");
+    strcpy(value, "0");
   } else {
-    #ifdef debug
-      Serial.println(F("linecallback NULL"));
-    #endif
+    strncpy(value, linevalue, 5);
   }
+  
+  char* lineParams = strtok(NULL, "?");
+  if (lineParams != NULL)
+    parseParameters(lineParams, callback);
+
   return true;
+}
+
+void parseParameters(const char* lineParams, char* callback) {
+  PRINT_DEBUG("Parameters: ", (char*)lineParams);
+  char tmp[MAX_PATH];
+  strcpy(tmp, lineParams);
+  
+  char* param = strtok(tmp, "&=");
+  
+  while (param != NULL) {
+    if (param != NULL && strncmp(param, "callback", 8) == 0) {
+      strcpy(callback, strtok(NULL, "&="));
+      PRINT_DEBUG("Callback found: ", callback);
+      break;
+    }
+    param = strtok(NULL, "&=");
+  }
+}
+
+void PRINT_DEBUG(const char* key, char* fstr)
+{
+  #ifdef DEBUG
+    if(!key) return;
+    Serial.print(key);
+    Serial.println(fstr);
+  #endif
 }
 
 // Tries to read the IP address and other connection details
