@@ -54,8 +54,8 @@
 
 Adafruit_CC3000 cc3000 = Adafruit_CC3000(ADAFRUIT_CC3000_CS, ADAFRUIT_CC3000_IRQ, ADAFRUIT_CC3000_VBAT); // , SPI_CLOCK_DIVIDER, &Serial
 
-#define WLAN_SSID       "Livebox-25A0"   // cannot be longer than 32 characters!
-#define WLAN_PASS       "3C7955CAEDD45C4E3766A7F9A9"
+#define WLAN_SSID       "Your-SSID"   // cannot be longer than 32 characters!
+#define WLAN_PASS       "Your-KEY-PASS"
 // Security can be WLAN_SEC_UNSEC, WLAN_SEC_WEP, WLAN_SEC_WPA or WLAN_SEC_WPA2
 #define WLAN_SECURITY   WLAN_SEC_WPA2
 
