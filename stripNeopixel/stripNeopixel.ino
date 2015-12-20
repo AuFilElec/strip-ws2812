@@ -41,6 +41,7 @@
 #include <Adafruit_NeoPixel.h>
 #include "utility/debug.h"
 #include "utility/socket.h"
+#include "stripNeopixel.h"
 
 
 // These are the interrupt and control pins
@@ -54,8 +55,8 @@
 
 Adafruit_CC3000 cc3000 = Adafruit_CC3000(ADAFRUIT_CC3000_CS, ADAFRUIT_CC3000_IRQ, ADAFRUIT_CC3000_VBAT); // , SPI_CLOCK_DIVIDER, &Serial
 
-#define WLAN_SSID       "Your-SSID"   // cannot be longer than 32 characters!
-#define WLAN_PASS       "Your-KEY-PASS"
+#define WLAN_SSID       "YOUR_SSID"   // cannot be longer than 32 characters!
+#define WLAN_PASS       "YOUR_PASSS_KEY"
 // Security can be WLAN_SEC_UNSEC, WLAN_SEC_WEP, WLAN_SEC_WPA or WLAN_SEC_WPA2
 #define WLAN_SECURITY   WLAN_SEC_WPA2
 
@@ -96,22 +97,6 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(PIXEL_COUNT, PIXEL_PIN, NEO_GRB + NE
 
 Adafruit_CC3000_Server httpServer(LISTEN_PORT);
 
-// Color scheme definitions.
-struct Color {
-  uint8_t red;
-  uint8_t green;
-  uint8_t blue;
-  
-  Color(uint8_t red, uint8_t green, uint8_t blue): red(red), green(green), blue(blue) {}
-  Color(): red(0), green(0), blue(0) {}
-};
-
-struct ColorScheme {
-  Color* colors;
-  uint8_t count;
- 
-  ColorScheme(Color* colors, uint8_t count): colors(colors), count(count) {} 
-};
 
 Color rgbColors[3] = { Color(255, 0, 0), Color(0, 255, 0), Color(0, 0, 255) };
 ColorScheme rgb(rgbColors, 3);
@@ -233,7 +218,7 @@ void setup() {
 
 // Compute the color of a pixel at position i using a gradient of the color scheme.  
 // This function is used internally by the gradient function.
-struct Color gradientColor(struct ColorScheme& scheme, int range, int gradRange, int i) {
+Color gradientColor(ColorScheme& scheme, int range, int gradRange, int i) {
   //wdt_enable(WDTO_1S);
   int curRange = i / range;
   int rangeIndex = i % range;
@@ -252,7 +237,7 @@ struct Color gradientColor(struct ColorScheme& scheme, int range, int gradRange,
 // Display a gradient of colors for the provided color scheme.
 // Repeat is the number of repetitions of the gradient (pick a multiple of 2 for smooth looping of the gradient).
 // SpeedMS is the number of milliseconds it takes for the gradient to move one pixel.  Set to zero for no animation.
-void gradient(struct ColorScheme& scheme, int repeat = 1, int speedMS = 1000) {
+void gradient(ColorScheme& scheme, int repeat = 1, int speedMS = 1000) {
   //wdt_enable(WDTO_1S);
   if (scheme.count < 2) return;
   
@@ -285,7 +270,7 @@ void gradient(struct ColorScheme& scheme, int repeat = 1, int speedMS = 1000) {
 // Display solid bars of color for the provided color scheme.
 // Width is the width of each bar in pixels/lights.
 // SpeedMS is number of milliseconds it takes for the bars to move one pixel.  Set to zero for no animation.
-void bars(struct ColorScheme& scheme, int width = 1, int speedMS = 1000) {
+void bars(ColorScheme& scheme, int width = 1, int speedMS = 1000) {
   //wdt_enable(WDTO_1S);
   int maxSize = PIXEL_COUNT / scheme.count;
   if (width > maxSize) return;
